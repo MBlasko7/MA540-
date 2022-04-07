@@ -1,0 +1,86 @@
+# -*- coding: utf-8 -*-
+"""
+TITLE:      algorithm_template
+DATE:       03-11-2022
+AUTHOR:     MA540 Team 4
+    
+DESCRIPTION:
+Implement Gaussian Process classifier on non-normalized photometry data
+
+"""
+
+#%% IMPORTS %%#
+import os
+import numpy as np
+import photometry as phot
+import matplotlib.pyplot as plt
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RBF
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import sklearn.metrics.pairwise as skmp
+
+#%% SETUP %%#
+# Filepath containing photometry csv files
+filepath = "C:/Users/maxim/Downloads/HW02/Henry Sandbox/data_files_v1/";
+
+# Iterate through all csv files in directory
+files          = os.listdir(filepath);        # List of filenames in directory
+num_samples    = len(files);                  # Number of photometry curves
+num_attributes = 288;                         # Number of attributes (288 is max for current setup)
+
+# X and y vectors for SKLEARN
+y = np.empty([num_samples,1]);                # Attribute Vectors
+X = np.zeros([num_samples,num_attributes]);   # Class Labels
+
+#%% ITERATE THROUGH FILES %%#
+i = 0;                                        # Iteration Variable
+for filename in files:
+    if filename.endswith(".csv"):             # Only  mess with CSV files
+        print("Processing file: " + filename);
+        
+        # Photometry Object
+        phot1 = phot.Phot(filepath+filename);
+        
+        # Class Identifier
+        if phot1.sat_name == "1U-NOWINGS-V1":
+            sat_class = 0;
+        elif phot1.sat_name == "2U-NOWINGS-V1":
+            sat_class = 1;
+        elif phot1.sat_name == "6U-NOWINGS-V1":
+            sat_class = 2;
+        else:
+            print("Unrecognized satellite type...");
+            continue;
+        
+        # Asign Values
+        y[i] = sat_class;                     # Class Label
+        X[i,0:phot1.num_frames] = phot1.phot; # Attributes
+        
+        i += 1;                               # Iterate
+        
+#%% PLOT %%#
+
+# Plot a random light curve from the available data
+index = np.random.randint(0,num_samples);
+plt.plot(X[index,:],'.-');
+
+#%% IMPLEMENT ALGORITHM HERE %%#
+y = np.ravel(y);
+seed = 19;
+
+X_train,X_test,y_train,y_test = train_test_split(X,y,test_size = 0.3, stratify = y, random_state = seed)
+
+kernel = 1.0*RBF(1.0) #This is the basic kernel, construction of a better kernel can be done.
+
+gpc = GaussianProcessClassifier(kernel=kernel,random_state=seed)
+gpc.fit(X_train, y_train)
+
+ypred_train = gpc.predict(X_train)
+train_acc = accuracy_score(y_train,ypred_train)
+print("Training Accuracy:" + str(train_acc));
+
+ypred_test = gpc.predict(X_test)
+test_acc = accuracy_score(y_test,ypred_test)
+print("Testing Accuracy:" + str(test_acc));
+
